@@ -1,7 +1,6 @@
 Logistics.js
 ============
 
-<<<<<<< HEAD
 A JavaScript data loading library. No decencies. Small size. Support for: CORS , multiple resource loading, progress indicator, localStorage caching (JSON, XML, text, html, binary, images).
 
 Usage
@@ -29,6 +28,3 @@ Logistics.getMultiple(
 
 	}
 );
-=======
-A JavaScript data loading library. No dependencies. Small size. Support for: CORS , multiple resource loading, progress indicator, localStorage caching (JSON, XML, text, html, binary, images). 
->>>>>>> 7a401ec458269c1b09c8e2f1b6f2af6442a0cb3d
