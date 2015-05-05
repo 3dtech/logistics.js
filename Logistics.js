@@ -9,10 +9,12 @@ var Logistics = (function(){
 
 		var queue = [];
 		var multiQueue = []; // {"count": 10, "success": funcion(){}}
+		var stages = {}; //groups different stages
 		var loadedCount = 0;
 		var loading = false;
 		var afterLoadCallback = null;
 		var progressCallback = null;
+		var stageCallback = null;
 		var loadedCheckTimer = null;
 
 		var options = {
@@ -168,7 +170,7 @@ var Logistics = (function(){
 		};
 
 		// This holds info about item that is loaded
-		var DataTransporter = function(_url, _params, _success, _type, _requestType){
+		var DataTransporter = function(_url, _params, _success, _type, _requestType, _options){
 			this.url = _url;
 			this.params = _params;
 			this.success = _success;
@@ -177,7 +179,7 @@ var Logistics = (function(){
 			this.data = false; //Holds the parsedData (JSON, XMLDocument, Image, TypedArray)
 			this.requestType = _requestType;
 			this.useCORS = false;
-			this.options = {};
+			this.options = (_options ? _options : {});
 
 			this.successCallback = _success;
 			this.errorCallback = false;
@@ -196,12 +198,12 @@ var Logistics = (function(){
 				this.loaded = true;
 				loadedCount++;
 				callSuccess(this);
-				callProgress();
+				callProgress(this);
 			};
 
 			this.failed = function(){
 				loadedCount++;
-				callProgress();
+				callProgress(this);
 				callError(this);
 			};
 
@@ -230,12 +232,14 @@ var Logistics = (function(){
 			};
 		};
 
-		var MultiTransporter = function(urlList, _success){
+		var MultiTransporter = function(urlList, _success, _options){
 			this.urls = urlList;
 			this.results = {};
 			this.loadedCount = 0;
 			this.count = 0;
 			this.successCallback = _success;
+
+			_options = (_options ? _options : {});
 
 			this.load = function(){
 				var dt = null;
@@ -250,7 +254,7 @@ var Logistics = (function(){
 				for(var i in this.urls){
 					url = this.urls[i];
 					if(url && url.url && url.type){
-						dt = get(url.url, undefined, callback(this, this.ready, i), url.type);
+						dt = get(url.url, undefined, callback(this, this.ready, i), url.type, JSON.parse(JSON.stringify(_options)));
 						dt.setOption("logistics.multi.key", i);
 						dt.fail(callback(this, this.fail));
 					}
@@ -282,7 +286,7 @@ var Logistics = (function(){
 			};
 		};
 
-		var get = function(_url, _params, _success, _type){
+		var get = function(_url, _params, _success, _type, _options){
 			var _requestType = "GET";
 
 			//If params is function then this is the success callback
@@ -295,7 +299,7 @@ var Logistics = (function(){
 				_requestType = "POST";
 			}
 
-			var dt = new DataTransporter(_url, _params, _success, _type, _requestType);
+			var dt = new DataTransporter(_url, _params, _success, _type, _requestType, _options);
 			if(options.enableCORS){
 				dt.useCORS = ifCORSNeeded(_url);
 			}
@@ -308,8 +312,8 @@ var Logistics = (function(){
 			return dt;
 		};
 
-		var getMultiple = function(urlList, success){
-			var mt = new MultiTransporter(urlList, success);
+		var getMultiple = function(urlList, success, options){
+			var mt = new MultiTransporter(urlList, success, options);
 			multiQueue.push(mt);
 			mt.load();
 		};
@@ -325,12 +329,25 @@ var Logistics = (function(){
 			return true;
 		};
 
+		var checkOptions = function(dt){
+			if(dt){
+				var stage = dt.getOption("stage")
+				if(stage){
+					if(typeof stages[stage] !== "object"){
+						stages[stage] = [];
+					}
+					stages[stage].push(dt);
+				}
+			}
+		}
+
 		var startLoad = function(dt){
 			load(dt);
 			return true;
 		};
 
 		var load = function(dt){
+			checkOptions(dt);
 			//check if localStorage is supported
 			if(options.loadFromLocalStorage && inLocalStorage(dt)){
 				restore(dt);
@@ -404,14 +421,11 @@ var Logistics = (function(){
 				xhr.onreadystatechange = function () {
 					if (xhr.readyState == 4) {
 						if(xhr.status == 200) {
-							dt.loaded = true;
-							loadedCount++;
 							getTypeFunction(dt.dataType, "parse")(dt, xhr);
-							callSuccess(dt);
+							dt.ready();
 						}
 						else {
-							loadedCount++;
-							callError(dt);
+							dt.failed();
 						}
 					}
 					else {
@@ -422,11 +436,14 @@ var Logistics = (function(){
 				};
 
 				xhr.ontimeout = function(){
-					loadedCount++;
-					callError(dt);
+					dt.failed();
 				};
 
-				callProgress();
+				xhr.onerror = function() {
+					dt.failed();
+				};
+
+				callProgress(dt);
 
 				xhr.send(null);
 			}
@@ -534,7 +551,6 @@ var Logistics = (function(){
 			if(dt && options.storeToLocalStorage){
 				storeToLocalStorage(dt);
 			}
-
 		};
 
 		var callError = function(dt){
@@ -549,11 +565,34 @@ var Logistics = (function(){
 			callIfFinished();
 		};
 
-		var callProgress = function(){
+		var callProgress = function(dt){
 			if(progressCallback && typeof progressCallback === "function" && queue.length && loadedCount){
 				progressCallback(loadedCount/queue.length);
 			}
+
+			if(dt && dt.getOption("stage")){
+				callStageCallback(dt);
+			}
 		};
+
+		var callStageCallback = function(dt){
+			if(stageCallback && typeof stageCallback === "function"){
+				var stage = stages[dt.getOption("stage")];
+				var length = stage.length;
+				var loadedCount = 0;
+
+				for(var i=0; i < length; i++){
+					if(stage[i] && stage[i].loaded){
+						loadedCount++;
+					}
+				}
+
+
+				if(length > 0){
+					stageCallback(dt.getOption("stage"), loadedCount/length);
+				}
+			}
+		}
 
 		var callIfFinished = function(){
 			if(loadedCheckTimer === null){
@@ -596,32 +635,32 @@ var Logistics = (function(){
 			},
 
 			// Returns response as a string
-			get: function(url, params, success, type, reload){
-				return get(url, params, success, toLowerCase(type));
+			get: function(url, params, success, type, options){
+				return get(url, params, success, toLowerCase(type), options);
 			},
 
-			getJSON: function(url, params, success, reload){
-				return get(url, params, success, "json", reload);
+			getJSON: function(url, params, success, options){
+				return get(url, params, success, "json", options);
 			},
 
-			getImage: function(url, params, success, reload){
-				return get(url, params, success, "image", reload);
+			getImage: function(url, params, success, options){
+				return get(url, params, success, "image", options);
 			},
 
-			getBinary: function(url, params, success, reload){
-				return get(url, params, success, "binary", reload);
+			getBinary: function(url, params, success, options){
+				return get(url, params, success, "binary", options);
 			},
 
-			getXML: function(url, params, success, reload){
-				return get(url, params, success, "xml", reload);
+			getXML: function(url, params, success, options){
+				return get(url, params, success, "xml", options);
 			},
 
-			getText: function(url, params, success, reload){
-				return get(url, params, success, "text", reload);
+			getText: function(url, params, success, options){
+				return get(url, params, success, "text", options);
 			},
 
-			getMultiple: function(urlList, success, reload){
-				getMultiple(urlList, success, reload);
+			getMultiple: function(urlList, success, options){
+				getMultiple(urlList, success, options);
 			},
 
 			store: function(){
@@ -642,6 +681,10 @@ var Logistics = (function(){
 
 			onProgress: function(callback){
 				progressCallback = callback;
+			},
+
+			onStageProgress: function(callback){
+				stageCallback = callback;
 			},
 
 			getQueue: function(){
