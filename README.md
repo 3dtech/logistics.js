@@ -6,24 +6,31 @@ A JavaScript data loading library. No decencies. Small size. Support for: CORS ,
 Usage
 -----
 
+Get a single resource
+
 ```javascript
 Logistics.getJSON("http://example.com/file.json").success(function(result, dt){
 
 });
 ```
+There are also other shorthand methods: getImage, getBinary, getXML, getText
 
+
+Called when all queued items are loaded. There is a 5ms delay for checking the finished state.
 ```javascript
-Logistics.onFinishedLoading(function(data, dt){
+Logistics.onFinishedLoading(function(){
 
 });
 ```
 
+Event for loading progress
 ```javascript
-Logistics.onProgress(function(data, dt){
+Logistics.onProgress(function(percentage){
 
 });
 ```
 
+Load multiple resources at calls after all are loaded
 ```javascript
 Logistics.getMultiple(
 	{
@@ -31,7 +38,7 @@ Logistics.getMultiple(
 		"bar": {"url": "http://example.com/file.jpeg", "type": "image"}
 	},
 	function(data){
-
+		var foo = data["foo"];
 	}
 );
 ```
