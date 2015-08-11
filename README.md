@@ -6,19 +6,25 @@ A JavaScript data loading library. No decencies. Small size. Support for: CORS ,
 Usage
 -----
 
+```javascript
 Logistics.getJSON("http://example.com/file.json").success(function(result, dt){
 
 });
+```
 
-//Called when queue items have been loaded
+```javascript
 Logistics.onFinishedLoading(function(data, dt){
 
 });
+```
 
+```javascript
 Logistics.onProgress(function(data, dt){
 
 });
+```
 
+```javascript
 Logistics.getMultiple(
 	{
 		"foo": {"url": "http://example.com/file.json", "type": "json"},
@@ -28,3 +34,4 @@ Logistics.getMultiple(
 
 	}
 );
+```
