@@ -1,6 +1,7 @@
 /**
-*	@version 0.3.2
+*	@version 0.3.3
 */
+
 var Logistics = (function(){
 		var storageSupport = false;
 		if(typeof window !== "undefined"){
@@ -23,7 +24,7 @@ var Logistics = (function(){
 			"loadFromFile": false,
 			"enableCORS": true,
 			"useCookies": false,
-			"fallbackFromStorage": true,
+			"fallbackFromStorage": true
 		};
 
 		var me = this;
@@ -254,9 +255,14 @@ var Logistics = (function(){
 				for(var i in this.urls){
 					url = this.urls[i];
 					if(url && url.url && url.type){
-						dt = get(url.url, undefined, callback(this, this.ready, i), url.type, JSON.parse(JSON.stringify(_options)));
-						dt.setOption("logistics.multi.key", i);
-						dt.fail(callback(this, this.fail));
+						try {
+							dt = get(url.url, undefined, callback(this, this.ready, i), url.type, JSON.parse(JSON.stringify(_options)));
+							dt.setOption("logistics.multi.key", i);
+							dt.fail(callback(this, this.fail));
+						}
+						catch(e){
+							dt.fail();
+						}
 					}
 				}
 			};
@@ -324,7 +330,7 @@ var Logistics = (function(){
 			var url = _url.match(/(https?:)?\/\/([^\/]+)\/(.*)/);
 			if (!url)
 				return false;
-			if (url[1] === document.location.origin)
+			if (document && url[1] === document.location.origin)
 				return false;
 			return true;
 		};
@@ -459,7 +465,7 @@ var Logistics = (function(){
 				return xml;
 			}
 
-			if (window.DOMParser){
+			if(window && window.DOMParser){
 				var parser = new DOMParser();
 				xml=parser.parseFromString(data, "text/xml");
 			}
@@ -479,7 +485,7 @@ var Logistics = (function(){
 		var getHTTPObject = function(dt) {
 			var http = false;
 			//Use IE's ActiveX items to load the file.
-			if(dt.useCORS && window.XDomainRequest){
+			if(dt.useCORS && window && window.XDomainRequest){
 				try {http = new XDomainRequest();}
 				catch (E) {http = false;}
 			} else if (XMLHttpRequest) {
@@ -560,6 +566,9 @@ var Logistics = (function(){
 			}
 			else if(dt && typeof dt.errorCallback === "function"){
 				dt.errorCallback(dt, "error", "");
+			}
+			else {
+				throw "Resource "+dt.url+" not loaded";
 			}
 
 			callIfFinished();
@@ -705,6 +714,10 @@ var Logistics = (function(){
 
 			setOption: function(key, value){
 				setOption(key, value);
+			},
+
+			start: function(){
+				return start();
 			}
 		};
 })();
